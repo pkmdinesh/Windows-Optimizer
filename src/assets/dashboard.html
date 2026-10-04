@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WinOpt - Hardware-Aware Windows Optimizer</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --surface-color: #161b22;
+            --surface-hover: #21262d;
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
+            --accent-green: #238636;
+            --accent-green-hover: #2ea043;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --danger-color: #da3633;
+            --warning-color: #d29922;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge-safe {
+            font-size: 11px;
+            background-color: rgba(56, 139, 253, 0.15);
+            color: var(--accent-color);
+            padding: 4px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 139, 253, 0.3);
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: var(--surface-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--surface-hover);
+            border-color: #8b949e;
+        }
+
+        button.primary {
+            background-color: var(--accent-green);
+            border-color: rgba(240, 246, 252, 0.1);
+            color: #fff;
+        }
+
+        button.primary:hover {
+            background-color: var(--accent-green-hover);
+        }
+
+        button.danger {
+            background-color: rgba(218, 54, 51, 0.15);
+            border-color: var(--danger-color);
+            color: #f85149;
+        }
+
+        button.danger:hover {
+            background-color: var(--danger-color);
+            color: #fff;
+        }
+
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .card-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .card-detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            padding: 8px 16px;
+            color: var(--text-secondary);
+        }
+
+        .tab-btn.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .tweak-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface-color);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .tweak-table th, .tweak-table td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tweak-table th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .status-pill {
+            display: inline-block;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .status-optimized {
+            background: rgba(46, 160, 67, 0.15);
+            color: #3fb950;
+            border: 1px solid rgba(46, 160, 67, 0.4);
+        }
+
+        .status-default {
+            background: rgba(139, 148, 158, 0.15);
+            color: #8b949e;
+            border: 1px solid rgba(139, 148, 158, 0.3);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #238636;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 6px;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>WinOpt <span class="badge-safe">Hardware-Aware Optimizer</span></h1>
+                <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Zero-regret, safe performance tuning and privacy debloater</p>
+            </div>
+            <div class="actions">
+                <button class="danger" onclick="rollbackAll()">Undo / Rollback All</button>
+                <button class="primary" onclick="applySafePreset()">⚡ One-Click Optimize</button>
+            </div>
+        </header>
+
+        <!-- Hardware Summary Cards -->
+        <div class="grid-cards" id="hardware-cards">
+            <div class="card">
+                <div class="card-title">Operating System</div>
+                <div class="card-value" id="hw-os">Loading...</div>
+                <div class="card-detail" id="hw-build"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Processor</div>
+                <div class="card-value" id="hw-cpu">Loading...</div>
+                <div class="card-detail" id="hw-cores"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">System Memory</div>
+                <div class="card-value" id="hw-ram">Loading...</div>
+                <div class="card-detail" id="hw-ram-free"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Storage Subsystem</div>
+                <div class="card-value" id="hw-storage">Loading...</div>
+                <div class="card-detail" id="hw-trim"></div>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tweaks')">Optimization Tweaks</button>
+            <button class="tab-btn" onclick="switchTab('debloat')">UWP Debloater</button>
+            <button class="tab-btn" onclick="switchTab('startup')">Startup Programs</button>
+        </div>
+
+        <!-- Tab 1: Tweaks -->
+        <div class="tab-pane active" id="pane-tweaks">
+            <table class="tweak-table">
+                <thead>
+                    <tr>
+                        <th>Tweak Name & Description</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="tweaks-tbody">
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Loading tweaks...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tab 2: Debloat -->
+        <div class="tab-pane" id="pane-debloat">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <p style="color: var(--text-secondary); font-size: 14px;">Safely uninstalls non-essential pre-installed bloatware packages while whitelisting Microsoft Store and shell components.</p>
+                <button class="primary" onclick="purgeBloatware()">Batch Purge Detected Apps</button>
+            </div>
+            <table class="tweak-table">
+                <thead>
+                    <tr>
+                        <th>Application</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="debloat-tbody">
+                    <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Scanning packages...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tab 3: Startup -->
+        <div class="tab-pane" id="pane-startup">
+            <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Programs configured to launch automatically upon Windows user logon.</p>
+            <table class="tweak-table">
+                <thead>
+                    <tr>
+                        <th>Application Name</th>
+                        <th>Registry Location</th>
+                        <th>Command</th>
+                    </tr>
+                </thead>
+                <tbody id="startup-tbody">
+                    <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Reading startup items...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Changes applied successfully!</div>
+
+    <script>
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.background = isError ? '#da3633' : '#238636';
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3500);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('pane-' + tabId).classList.add('active');
+
+            if (tabId === 'debloat') loadBloatware();
+            if (tabId === 'startup') loadStartup();
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/profile');
+                const p = await res.json();
+                document.getElementById('hw-os').innerText = p.os.name;
+                document.getElementById('hw-build').innerText = `Build ${p.os.build} (${p.os.arch})`;
+
+                document.getElementById('hw-cpu').innerText = p.cpu.name.substring(0, 28);
+                document.getElementById('hw-cores').innerText = `${p.cpu.physical_cores} Cores / ${p.cpu.logical_cores} Threads ${p.cpu.is_hybrid ? '(P/E Layout)' : ''}`;
+
+                document.getElementById('hw-ram').innerText = `${(p.ram.total_mb / 1024).toFixed(1)} GB RAM`;
+                document.getElementById('hw-ram-free').innerText = `${(p.ram.available_mb / 1024).toFixed(1)} GB Available (${p.ram.category})`;
+
+                const primaryDisk = p.drives.find(d => d.is_system_drive) || p.drives[0];
+                if (primaryDisk) {
+                    document.getElementById('hw-storage').innerText = `${primaryDisk.storage_type} Drive (${primaryDisk.total_gb} GB)`;
+                    document.getElementById('hw-trim').innerText = `TRIM: ${primaryDisk.trim_enabled ? 'Active' : 'Disabled'}`;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadTweaks() {
+            try {
+                const res = await fetch('/api/tweaks');
+                const tweaks = await res.json();
+                const tbody = document.getElementById('tweaks-tbody');
+                tbody.innerHTML = '';
+
+                tweaks.forEach(t => {
+                    const row = document.createElement('tr');
+                    const statusBadge = t.is_applied 
+                        ? `<span class="status-pill status-optimized">OPTIMIZED</span>`
+                        : `<span class="status-pill status-default">DEFAULT</span>`;
+
+                    const actionBtn = t.is_applied
+                        ? `<button onclick="revertTweak('${t.id}')">Revert</button>`
+                        : `<button class="primary" onclick="applyTweak('${t.id}')">Apply</button>`;
+
+                    row.innerHTML = `
+                        <td>
+                            <strong>${t.name}</strong>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${t.description}</div>
+                        </td>
+                        <td><span style="font-size: 13px; color: var(--text-secondary);">${t.category}</span></td>
+                        <td>${statusBadge}</td>
+                        <td>${actionBtn}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function applyTweak(id) {
+            const res = await fetch('/api/apply-tweak?id=' + id, { method: 'POST' });
+            if (res.ok) {
+                showToast('Tweak applied successfully!');
+                loadTweaks();
+            } else {
+                showToast('Failed to apply tweak', true);
+            }
+        }
+
+        async function revertTweak(id) {
+            const res = await fetch('/api/revert-tweak?id=' + id, { method: 'POST' });
+            if (res.ok) {
+                showToast('Tweak reverted.');
+                loadTweaks();
+            } else {
+                showToast('Failed to revert tweak', true);
+            }
+        }
+
+        async function applySafePreset() {
+            showToast('Applying safe hardware preset...');
+            const res = await fetch('/api/apply-preset', { method: 'POST' });
+            const data = await res.json();
+            showToast(`Preset applied: ${data.applied} optimizations configured!`);
+            loadTweaks();
+        }
+
+        async function rollbackAll() {
+            if (!confirm('Revert all optimizations back to their original state?')) return;
+            const res = await fetch('/api/rollback-all', { method: 'POST' });
+            const data = await res.json();
+            showToast(`Rolled back ${data.count} state records.`);
+            loadTweaks();
+        }
+
+        async function loadBloatware() {
+            const tbody = document.getElementById('debloat-tbody');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Scanning packages...</td></tr>';
+            try {
+                const res = await fetch('/api/bloatware');
+                const apps = await res.json();
+                tbody.innerHTML = '';
+                apps.forEach(a => {
+                    const row = document.createElement('tr');
+                    const statusText = a.is_installed 
+                        ? `<span style="color: #f85149; font-weight: 500;">Detected</span>`
+                        : `<span style="color: #3fb950;">Clean</span>`;
+
+                    row.innerHTML = `
+                        <td><strong>${a.display_name}</strong></td>
+                        <td style="font-size: 13px; color: var(--text-secondary);">${a.description}</td>
+                        <td>${statusText}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function purgeBloatware() {
+            showToast('Purging bloatware in background...');
+            const res = await fetch('/api/purge-bloatware', { method: 'POST' });
+            const data = await res.json();
+            showToast(`Purged ${data.removed.length} bloatware packages.`);
+            loadBloatware();
+        }
+
+        async function loadStartup() {
+            const tbody = document.getElementById('startup-tbody');
+            try {
+                const res = await fetch('/api/startup');
+                const items = await res.json();
+                tbody.innerHTML = '';
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No autostart programs detected.</td></tr>';
+                    return;
+                }
+                items.forEach(i => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${i.name}</strong></td>
+                        <td style="font-size: 13px; color: var(--accent-color);">${i.location}</td>
+                        <td style="font-size: 12px; color: var(--text-secondary); font-family: monospace;">${i.command}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Initialize
+        loadProfile();
+        loadTweaks();
+    </script>
+</body>
+</html>
