@@ -1,9 +1,64 @@
 use crate::engine::OptimizationOrchestrator;
 use crate::hardware::models::HardwareProfile;
-use crate::modules::{DebloatManager, StartupManager};
+use crate::modules::{CleanerManager, DebloatManager, StartupManager};
 use std::io::Cursor;
+use std::path::Path;
+use std::process::Command;
 use std::sync::Arc;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
+
+pub fn launch_gui_window(profile: HardwareProfile) {
+    let addr = "127.0.0.1:8765";
+    let target_url = format!("http://{}", addr);
+
+    // Launch standalone application window via Chrome or Edge or default browser
+    let chrome_path = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+    let edge_paths = [
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    ];
+
+    let mut launched = false;
+
+    if Path::new(chrome_path).exists() {
+        if Command::new(chrome_path)
+            .args([
+                &format!("--app={}", target_url),
+                "--window-size=1200,850",
+                "--disable-features=Translate",
+            ])
+            .spawn()
+            .is_ok()
+        {
+            launched = true;
+        }
+    }
+
+    if !launched {
+        for edge in edge_paths {
+            if Path::new(edge).exists() {
+                if Command::new(edge)
+                    .args([
+                        &format!("--app={}", target_url),
+                        "--window-size=1200,850",
+                    ])
+                    .spawn()
+                    .is_ok()
+                {
+                    launched = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if !launched {
+        let _ = Command::new("cmd").args(["/c", "start", &target_url]).spawn();
+    }
+
+    // Run the server on the current thread
+    start_web_server(profile);
+}
 
 pub fn start_web_server(profile: HardwareProfile) {
     let orchestrator = Arc::new(OptimizationOrchestrator::new(profile.clone()));
@@ -16,7 +71,7 @@ pub fn start_web_server(profile: HardwareProfile) {
         }
     };
 
-    println!("Local web dashboard running at http://{}", addr);
+    println!("Local GUI server running at http://{}", addr);
 
     let html_content = include_str!("../assets/dashboard.html");
 
@@ -158,6 +213,49 @@ pub fn start_web_server(profile: HardwareProfile) {
         if url == "/api/startup" && method == Method::Get {
             let items = StartupManager::get_registered_startup_programs();
             let json = serde_json::to_string(&items).unwrap_or_else(|_| "[]".into());
+            let response = Response::new(
+                StatusCode(200),
+                vec![json_header],
+                Cursor::new(json.clone()),
+                Some(json.len()),
+                None,
+            );
+            let _ = request.respond(response);
+            continue;
+        }
+
+        // --- NEW JUNK CLEANER & RAM BOOST APIS ---
+        if url == "/api/junk-scan" && method == Method::Get {
+            let junk = CleanerManager::scan_junk();
+            let json = serde_json::to_string(&junk).unwrap_or_else(|_| "[]".into());
+            let response = Response::new(
+                StatusCode(200),
+                vec![json_header],
+                Cursor::new(json.clone()),
+                Some(json.len()),
+                None,
+            );
+            let _ = request.respond(response);
+            continue;
+        }
+
+        if url.starts_with("/api/junk-clean") && method == Method::Post {
+            let res = CleanerManager::clean_all_junk();
+            let json = serde_json::to_string(&res).unwrap_or_else(|_| "{}".into());
+            let response = Response::new(
+                StatusCode(200),
+                vec![json_header],
+                Cursor::new(json.clone()),
+                Some(json.len()),
+                None,
+            );
+            let _ = request.respond(response);
+            continue;
+        }
+
+        if url.starts_with("/api/boost-memory") && method == Method::Post {
+            let res = CleanerManager::boost_memory_and_network();
+            let json = serde_json::to_string(&res).unwrap_or_else(|_| "{}".into());
             let response = Response::new(
                 StatusCode(200),
                 vec![json_header],

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WinOpt - Hardware-Aware Windows Optimizer</title>
+    <title>WinOpt - Hardware-Aware Windows Optimizer & Cleaner</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -11,12 +11,14 @@
             --surface-hover: #21262d;
             --border-color: #30363d;
             --accent-color: #58a6ff;
+            --accent-cyan: #39c5cf;
             --accent-green: #238636;
             --accent-green-hover: #2ea043;
             --text-primary: #f0f6fc;
             --text-secondary: #8b949e;
             --danger-color: #da3633;
             --warning-color: #d29922;
+            --purple-color: #bc8cff;
         }
 
         * {
@@ -36,7 +38,7 @@
 
         .container {
             width: 100%;
-            max-width: 1100px;
+            max-width: 1140px;
         }
 
         header {
@@ -67,7 +69,7 @@
 
         .actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
         }
 
         button {
@@ -79,6 +81,9 @@
             border-radius: 6px;
             font-weight: 500;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         button:hover {
@@ -94,6 +99,17 @@
 
         button.primary:hover {
             background-color: var(--accent-green-hover);
+        }
+
+        button.boost {
+            background-color: rgba(188, 140, 255, 0.15);
+            border-color: var(--purple-color);
+            color: var(--purple-color);
+        }
+
+        button.boost:hover {
+            background-color: var(--purple-color);
+            color: #0d1117;
         }
 
         button.danger {
@@ -152,13 +168,15 @@
             border: none;
             border-bottom: 2px solid transparent;
             border-radius: 0;
-            padding: 8px 16px;
+            padding: 10px 18px;
             color: var(--text-secondary);
+            font-size: 14px;
         }
 
         .tab-btn.active {
             color: var(--text-primary);
             border-bottom-color: var(--accent-color);
+            font-weight: 600;
         }
 
         .tab-pane {
@@ -167,6 +185,28 @@
 
         .tab-pane.active {
             display: block;
+        }
+
+        .cleaner-hero {
+            background: linear-gradient(135deg, rgba(57, 197, 207, 0.08), rgba(88, 166, 255, 0.05));
+            border: 1px solid rgba(57, 197, 207, 0.3);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cleaner-hero h2 {
+            font-size: 28px;
+            color: var(--accent-cyan);
+            margin-bottom: 6px;
+        }
+
+        .cleaner-hero p {
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
         .tweak-table {
@@ -210,6 +250,18 @@
             border: 1px solid rgba(139, 148, 158, 0.3);
         }
 
+        .status-na {
+            background: rgba(210, 153, 34, 0.15);
+            color: #d29922;
+            border: 1px solid rgba(210, 153, 34, 0.3);
+        }
+
+        .size-tag {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
         .toast {
             position: fixed;
             bottom: 24px;
@@ -229,11 +281,12 @@
         <header>
             <div>
                 <h1>WinOpt <span class="badge-safe">Hardware-Aware Optimizer</span></h1>
-                <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Zero-regret, safe performance tuning and privacy debloater</p>
+                <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Universal system speedup, deep junk/temp cleaner & privacy debloater</p>
             </div>
             <div class="actions">
-                <button class="danger" onclick="rollbackAll()">Undo / Rollback All</button>
-                <button class="primary" onclick="applySafePreset()">⚡ One-Click Optimize</button>
+                <button class="boost" onclick="boostRamAndDns()">⚡ Flush RAM & DNS</button>
+                <button class="danger" onclick="rollbackAll()">Undo All</button>
+                <button class="primary" onclick="applySafePreset()">🚀 One-Click Optimize</button>
             </div>
         </header>
 
@@ -245,7 +298,7 @@
                 <div class="card-detail" id="hw-build"></div>
             </div>
             <div class="card">
-                <div class="card-title">Processor</div>
+                <div class="card-title">Processor & Topology</div>
                 <div class="card-value" id="hw-cpu">Loading...</div>
                 <div class="card-detail" id="hw-cores"></div>
             </div>
@@ -263,17 +316,48 @@
 
         <!-- Tabs Navigation -->
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('tweaks')">Optimization Tweaks</button>
-            <button class="tab-btn" onclick="switchTab('debloat')">UWP Debloater</button>
-            <button class="tab-btn" onclick="switchTab('startup')">Startup Programs</button>
+            <button class="tab-btn active" onclick="switchTab('cleaner')">🧹 Deep Junk & Temp Cleaner</button>
+            <button class="tab-btn" onclick="switchTab('tweaks')">⚡ Performance & Anti-Sluggishness</button>
+            <button class="tab-btn" onclick="switchTab('debloat')">📦 UWP Debloater</button>
+            <button class="tab-btn" onclick="switchTab('startup')">🚀 Startup Optimization</button>
         </div>
 
-        <!-- Tab 1: Tweaks -->
-        <div class="tab-pane active" id="pane-tweaks">
+        <!-- Tab 1: Cleaner -->
+        <div class="tab-pane active" id="pane-cleaner">
+            <div class="cleaner-hero">
+                <div>
+                    <h2 id="total-junk-display">0.0 MB Cleanable</h2>
+                    <p id="total-junk-desc">Scans User Temp (%TEMP%), System Temp, Update Cache, Shader Caches, and Crash Dumps.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="scanJunk()">🔍 Refresh Scan</button>
+                    <button class="primary" style="padding: 10px 20px; font-size: 15px;" onclick="cleanJunk()">🧹 Clean All Junk Files</button>
+                </div>
+            </div>
+
             <table class="tweak-table">
                 <thead>
                     <tr>
-                        <th>Tweak Name & Description</th>
+                        <th>Junk Category & Target Directory</th>
+                        <th>Files Found</th>
+                        <th>Space Reclaimable</th>
+                    </tr>
+                </thead>
+                <tbody id="cleaner-tbody">
+                    <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Scanning junk files...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tab 2: Tweaks -->
+        <div class="tab-pane" id="pane-tweaks">
+            <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">
+                Fine-tuned system tweaks adapting dynamically to your CPU layout, SSD/HDD storage, and Laptop vs Desktop power states.
+            </div>
+            <table class="tweak-table">
+                <thead>
+                    <tr>
+                        <th>Optimization Tweak & Description</th>
                         <th>Category</th>
                         <th>Status</th>
                         <th>Action</th>
@@ -285,7 +369,7 @@
             </table>
         </div>
 
-        <!-- Tab 2: Debloat -->
+        <!-- Tab 3: Debloat -->
         <div class="tab-pane" id="pane-debloat">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <p style="color: var(--text-secondary); font-size: 14px;">Safely uninstalls non-essential pre-installed bloatware packages while whitelisting Microsoft Store and shell components.</p>
@@ -305,7 +389,7 @@
             </table>
         </div>
 
-        <!-- Tab 3: Startup -->
+        <!-- Tab 4: Startup -->
         <div class="tab-pane" id="pane-startup">
             <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Programs configured to launch automatically upon Windows user logon.</p>
             <table class="tweak-table">
@@ -334,12 +418,22 @@
             setTimeout(() => { toast.style.display = 'none'; }, 3500);
         }
 
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             event.target.classList.add('active');
             document.getElementById('pane-' + tabId).classList.add('active');
 
+            if (tabId === 'cleaner') scanJunk();
+            if (tabId === 'tweaks') loadTweaks();
             if (tabId === 'debloat') loadBloatware();
             if (tabId === 'startup') loadStartup();
         }
@@ -352,18 +446,76 @@
                 document.getElementById('hw-build').innerText = `Build ${p.os.build} (${p.os.arch})`;
 
                 document.getElementById('hw-cpu').innerText = p.cpu.name.substring(0, 28);
-                document.getElementById('hw-cores').innerText = `${p.cpu.physical_cores} Cores / ${p.cpu.logical_cores} Threads ${p.cpu.is_hybrid ? '(P/E Layout)' : ''}`;
+                document.getElementById('hw-cores').innerText = `${p.cpu.physical_cores} Cores / ${p.cpu.logical_cores} Threads ${p.cpu.is_hybrid ? '(Hybrid P/E)' : '(Symmetric)'}`;
 
                 document.getElementById('hw-ram').innerText = `${(p.ram.total_mb / 1024).toFixed(1)} GB RAM`;
-                document.getElementById('hw-ram-free').innerText = `${(p.ram.available_mb / 1024).toFixed(1)} GB Available (${p.ram.category})`;
+                document.getElementById('hw-ram-free').innerText = `${(p.ram.available_mb / 1024).toFixed(1)} GB Free (${p.ram.category})`;
 
                 const primaryDisk = p.drives.find(d => d.is_system_drive) || p.drives[0];
                 if (primaryDisk) {
                     document.getElementById('hw-storage').innerText = `${primaryDisk.storage_type} Drive (${primaryDisk.total_gb} GB)`;
-                    document.getElementById('hw-trim').innerText = `TRIM: ${primaryDisk.trim_enabled ? 'Active' : 'Disabled'}`;
+                    document.getElementById('hw-trim').innerText = `TRIM: ${primaryDisk.trim_enabled ? 'Active' : 'Disabled'} | Power: ${p.power_state}`;
                 }
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        async function scanJunk() {
+            const tbody = document.getElementById('cleaner-tbody');
+            try {
+                const res = await fetch('/api/junk-scan');
+                const junk = await res.json();
+                tbody.innerHTML = '';
+
+                let totalBytes = 0;
+                let totalFiles = 0;
+
+                junk.forEach(j => {
+                    totalBytes += j.size_bytes;
+                    totalFiles += j.file_count;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <strong>${j.name}</strong>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${j.description}</div>
+                            <div style="font-size: 11px; color: #58a6ff; font-family: monospace; margin-top: 2px;">${j.path_display}</div>
+                        </td>
+                        <td>${j.file_count.toLocaleString()} files</td>
+                        <td><span class="size-tag">${formatBytes(j.size_bytes)}</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('total-junk-display').innerText = `${formatBytes(totalBytes)} Cleanable`;
+                document.getElementById('total-junk-desc').innerText = `Found ${totalFiles.toLocaleString()} temporary and cached files ready to be purged safely.`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function cleanJunk() {
+            showToast('Cleaning temporary and junk files...');
+            try {
+                const res = await fetch('/api/junk-clean', { method: 'POST' });
+                const data = await res.json();
+                showToast(`Cleaned ${formatBytes(data.total_freed_bytes)} across ${data.files_deleted} files!`);
+                scanJunk();
+            } catch (e) {
+                showToast('Error cleaning junk files', true);
+            }
+        }
+
+        async function boostRamAndDns() {
+            showToast('Flushing DNS and trimming process working sets...');
+            try {
+                const res = await fetch('/api/boost-memory', { method: 'POST' });
+                const data = await res.json();
+                showToast(data.message);
+                loadProfile();
+            } catch (e) {
+                showToast('Boost error', true);
             }
         }
 
@@ -376,13 +528,23 @@
 
                 tweaks.forEach(t => {
                     const row = document.createElement('tr');
-                    const statusBadge = t.is_applied 
-                        ? `<span class="status-pill status-optimized">OPTIMIZED</span>`
-                        : `<span class="status-pill status-default">DEFAULT</span>`;
+                    let statusBadge;
+                    if (!t.is_applicable) {
+                        statusBadge = `<span class="status-pill status-na">N/A (HW)</span>`;
+                    } else if (t.is_applied) {
+                        statusBadge = `<span class="status-pill status-optimized">OPTIMIZED</span>`;
+                    } else {
+                        statusBadge = `<span class="status-pill status-default">DEFAULT</span>`;
+                    }
 
-                    const actionBtn = t.is_applied
-                        ? `<button onclick="revertTweak('${t.id}')">Revert</button>`
-                        : `<button class="primary" onclick="applyTweak('${t.id}')">Apply</button>`;
+                    let actionBtn = '';
+                    if (t.is_applicable) {
+                        actionBtn = t.is_applied
+                            ? `<button onclick="revertTweak('${t.id}')">Revert</button>`
+                            : `<button class="primary" onclick="applyTweak('${t.id}')">Apply</button>`;
+                    } else {
+                        actionBtn = `<span style="font-size: 12px; color: var(--text-secondary);">Restrained for HW</span>`;
+                    }
 
                     row.innerHTML = `
                         <td>
@@ -421,7 +583,7 @@
         }
 
         async function applySafePreset() {
-            showToast('Applying safe hardware preset...');
+            showToast('Applying safe hardware-aware preset...');
             const res = await fetch('/api/apply-preset', { method: 'POST' });
             const data = await res.json();
             showToast(`Preset applied: ${data.applied} optimizations configured!`);
@@ -495,7 +657,7 @@
 
         // Initialize
         loadProfile();
-        loadTweaks();
+        scanJunk();
     </script>
 </body>
 </html>

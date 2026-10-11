@@ -7,17 +7,42 @@ mod ui;
 use clap::Parser;
 use engine::OptimizationOrchestrator;
 use hardware::HardwareProfiler;
-use ui::{start_web_server, CliInterface};
+use modules::CleanerManager;
+use ui::{launch_gui_window, CliInterface};
+
+#[cfg(windows)]
+extern "system" {
+    fn GetConsoleWindow() -> isize;
+    fn ShowWindow(hWnd: isize, nCmdShow: i32) -> i32;
+}
+
+fn hide_console_window() {
+    #[cfg(windows)]
+    unsafe {
+        let hwnd = GetConsoleWindow();
+        if hwnd != 0 {
+            ShowWindow(hwnd, 0); // 0 = SW_HIDE
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "winopt")]
 #[command(author = "WinOpt Team")]
-#[command(version = "0.1.0")]
-#[command(about = "Universal Hardware-Aware Windows OS Optimization & Debloater Tool", long_about = None)]
+#[command(version = "0.2.0")]
+#[command(about = "Universal Hardware-Aware Windows OS Optimizer & Deep Cleaner GUI", long_about = None)]
 struct Args {
     /// Apply all safe hardware-aware optimizations immediately
     #[arg(short, long)]
     optimize: bool,
+
+    /// Deep clean temporary files, %TEMP%, Prefetch, and system caches
+    #[arg(short, long)]
+    clean: bool,
+
+    /// Flush DNS resolver cache and trim RAM process working sets
+    #[arg(short, long)]
+    boost: bool,
 
     /// Batch purge common UWP bloatware packages
     #[arg(short, long)]
@@ -27,17 +52,38 @@ struct Args {
     #[arg(short, long)]
     rollback: bool,
 
-    /// Display current hardware profile and tweak statuses
+    /// Display current hardware profile and tweak statuses in terminal
     #[arg(short, long)]
     status: bool,
 
-    /// Launch modern embedded web GUI in browser
+    /// Force launch interactive terminal CLI menu instead of GUI app
+    #[arg(long)]
+    cli: bool,
+
+    /// Explicitly launch the GUI app window
     #[arg(short, long)]
-    web: bool,
+    gui: bool,
 }
 
 fn main() {
     let args = Args::parse();
+
+    // Check if any headless CLI flag was passed
+    let has_cli_flag = args.status
+        || args.rollback
+        || args.debloat
+        || args.optimize
+        || args.clean
+        || args.boost
+        || args.cli;
+
+    // Default behavior on double-click or no flags: Launch GUI app window
+    if !has_cli_flag || args.gui {
+        hide_console_window();
+        let profile = HardwareProfiler::collect_profile();
+        launch_gui_window(profile);
+        return;
+    }
 
     println!("Detecting system hardware configuration...");
     let profile = HardwareProfiler::collect_profile();
@@ -47,6 +93,26 @@ fn main() {
         CliInterface::print_banner(&profile);
         CliInterface::display_hardware_recommendations(&profile);
         CliInterface::list_tweaks(&orchestrator);
+        return;
+    }
+
+    if args.clean {
+        CliInterface::print_banner(&profile);
+        println!("==> Scanning & cleaning temporary files...");
+        let res = CleanerManager::clean_all_junk();
+        println!(
+            "Successfully cleaned {:.2} MB across {} files ({} locked skipped).",
+            res.total_freed_bytes as f64 / (1024.0 * 1024.0),
+            res.files_deleted,
+            res.errors_encountered
+        );
+        return;
+    }
+
+    if args.boost {
+        println!("==> Flushing DNS and trimming RAM working sets...");
+        let res = CleanerManager::boost_memory_and_network();
+        println!("{}", res.message);
         return;
     }
 
@@ -77,16 +143,9 @@ fn main() {
         return;
     }
 
-    if args.web {
+    if args.cli {
         CliInterface::print_banner(&profile);
-        println!("==> Launching web interface on http://127.0.0.1:8765 ...");
-        let _ = std::process::Command::new("cmd").args(["/c", "start", "http://127.0.0.1:8765"]).spawn();
-        start_web_server(profile);
-        return;
+        CliInterface::display_hardware_recommendations(&profile);
+        CliInterface::run_interactive_menu(&orchestrator);
     }
-
-    // Default: Interactive menu
-    CliInterface::print_banner(&profile);
-    CliInterface::display_hardware_recommendations(&profile);
-    CliInterface::run_interactive_menu(&orchestrator);
 }

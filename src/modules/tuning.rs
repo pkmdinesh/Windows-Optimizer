@@ -2,7 +2,7 @@ use crate::engine::tweak::*;
 use crate::hardware::models::{ChassisType, PowerState};
 use crate::safety::rollback::{OptimizationBackup, RollbackManager};
 use std::process::Command;
-use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_READ};
+use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ};
 use winreg::RegKey;
 
 pub fn get_performance_tweaks() -> Vec<Tweak> {
@@ -111,6 +111,229 @@ pub fn get_performance_tweaks() -> Vec<Tweak> {
             },
             revert: |rb| {
                 for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "hardware_aware_cpu_priority") {
+                    rb.rollback_backup(&b)?;
+                }
+                Ok(())
+            },
+        },
+        Tweak {
+            id: "disable_network_throttling",
+            name: "Disable Multimedia Network & CPU Throttling",
+            description: "Removes default Windows network packet throttling and allocates 100% CPU priority to foreground applications.",
+            category: TweakCategory::Performance,
+            risk_level: RiskLevel::Safe,
+            is_applicable: |_| true,
+            check_status: || {
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                if let Ok(key) = hklm.open_subkey_with_flags("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", KEY_READ) {
+                    if let Ok(val) = key.get_value::<u32, _>("NetworkThrottlingIndex") {
+                        return val == 0xffffffff;
+                    }
+                }
+                false
+            },
+            apply: |rb, session_id| {
+                let subkey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile";
+                let snap1 = RollbackManager::snapshot_registry_value("HKLM", subkey, "NetworkThrottlingIndex");
+                let snap2 = RollbackManager::snapshot_registry_value("HKLM", subkey, "SystemResponsiveness");
+
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                let (key, _) = hklm.create_subkey(subkey).map_err(|e| e.to_string())?;
+                key.set_value("NetworkThrottlingIndex", &0xffffffffu32).map_err(|e| e.to_string())?;
+                key.set_value("SystemResponsiveness", &0u32).map_err(|e| e.to_string())?;
+
+                rb.save_backup(&OptimizationBackup {
+                    session_id: session_id.to_string(),
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    tweak_id: "disable_network_throttling".to_string(),
+                    description: "Disable Multimedia Network & CPU Throttling".to_string(),
+                    registry_snapshots: vec![snap1, snap2],
+                    service_snapshots: vec![],
+                })?;
+
+                Ok(())
+            },
+            revert: |rb| {
+                for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "disable_network_throttling") {
+                    rb.rollback_backup(&b)?;
+                }
+                Ok(())
+            },
+        },
+        Tweak {
+            id: "disable_gamedvr_overhead",
+            name: "Disable GameDVR Background Video Recording",
+            description: "Stops GameDVR from constantly encoding background gameplay, saving 10-15% GPU/CPU overhead and eliminating stutter.",
+            category: TweakCategory::Performance,
+            risk_level: RiskLevel::Safe,
+            is_applicable: |_| true,
+            check_status: || {
+                let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+                if let Ok(key) = hkcu.open_subkey_with_flags("System\\GameConfigStore", KEY_READ) {
+                    if let Ok(val) = key.get_value::<u32, _>("GameDVR_Enabled") {
+                        return val == 0;
+                    }
+                }
+                false
+            },
+            apply: |rb, session_id| {
+                let subkey1 = "System\\GameConfigStore";
+                let subkey2 = "SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR";
+                let snap1 = RollbackManager::snapshot_registry_value("HKCU", subkey1, "GameDVR_Enabled");
+                let snap2 = RollbackManager::snapshot_registry_value("HKLM", subkey2, "AllowGameDVR");
+
+                let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+                let (key1, _) = hkcu.create_subkey(subkey1).map_err(|e| e.to_string())?;
+                key1.set_value("GameDVR_Enabled", &0u32).map_err(|e| e.to_string())?;
+
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                let (key2, _) = hklm.create_subkey(subkey2).map_err(|e| e.to_string())?;
+                key2.set_value("AllowGameDVR", &0u32).map_err(|e| e.to_string())?;
+
+                rb.save_backup(&OptimizationBackup {
+                    session_id: session_id.to_string(),
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    tweak_id: "disable_gamedvr_overhead".to_string(),
+                    description: "Disable GameDVR Background Video Recording".to_string(),
+                    registry_snapshots: vec![snap1, snap2],
+                    service_snapshots: vec![],
+                })?;
+
+                Ok(())
+            },
+            revert: |rb| {
+                for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "disable_gamedvr_overhead") {
+                    rb.rollback_backup(&b)?;
+                }
+                Ok(())
+            },
+        },
+        Tweak {
+            id: "optimize_visual_effects",
+            name: "Eliminate UI Menu & Window Animation Latency",
+            description: "Removes artificial 400ms menu popup delays and sluggish window minimize/maximize animation pauses.",
+            category: TweakCategory::Performance,
+            risk_level: RiskLevel::Safe,
+            is_applicable: |_| true,
+            check_status: || {
+                let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+                if let Ok(key) = hkcu.open_subkey_with_flags("Control Panel\\Desktop", KEY_READ) {
+                    if let Ok(val) = key.get_value::<String, _>("MenuShowDelay") {
+                        return val == "0";
+                    }
+                }
+                false
+            },
+            apply: |rb, session_id| {
+                let subkey1 = "Control Panel\\Desktop";
+                let subkey2 = "Control Panel\\Desktop\\WindowMetrics";
+                let snap1 = RollbackManager::snapshot_registry_value("HKCU", subkey1, "MenuShowDelay");
+                let snap2 = RollbackManager::snapshot_registry_value("HKCU", subkey2, "MinAnimate");
+
+                let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+                let (key1, _) = hkcu.create_subkey(subkey1).map_err(|e| e.to_string())?;
+                key1.set_value("MenuShowDelay", &"0".to_string()).map_err(|e| e.to_string())?;
+
+                let (key2, _) = hkcu.create_subkey(subkey2).map_err(|e| e.to_string())?;
+                key2.set_value("MinAnimate", &"0".to_string()).map_err(|e| e.to_string())?;
+
+                rb.save_backup(&OptimizationBackup {
+                    session_id: session_id.to_string(),
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    tweak_id: "optimize_visual_effects".to_string(),
+                    description: "Eliminate UI Menu & Window Animation Latency".to_string(),
+                    registry_snapshots: vec![snap1, snap2],
+                    service_snapshots: vec![],
+                })?;
+
+                Ok(())
+            },
+            revert: |rb| {
+                for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "optimize_visual_effects") {
+                    rb.rollback_backup(&b)?;
+                }
+                Ok(())
+            },
+        },
+        Tweak {
+            id: "disable_power_throttling",
+            name: "Disable Power Throttling on Foreground Tasks",
+            description: "Prevents Windows 11 from artificially downclocking and power-throttling active application threads.",
+            category: TweakCategory::Performance,
+            risk_level: RiskLevel::Safe,
+            is_applicable: |p| p.chassis_type == ChassisType::Desktop || p.power_state == PowerState::AcPower,
+            check_status: || {
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                if let Ok(key) = hklm.open_subkey_with_flags("SYSTEM\\CurrentControlSet\\Control\\Power\\PowerThrottling", KEY_READ) {
+                    if let Ok(val) = key.get_value::<u32, _>("PowerThrottlingOff") {
+                        return val == 1;
+                    }
+                }
+                false
+            },
+            apply: |rb, session_id| {
+                let subkey = "SYSTEM\\CurrentControlSet\\Control\\Power\\PowerThrottling";
+                let snap = RollbackManager::snapshot_registry_value("HKLM", subkey, "PowerThrottlingOff");
+
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                let (key, _) = hklm.create_subkey(subkey).map_err(|e| e.to_string())?;
+                key.set_value("PowerThrottlingOff", &1u32).map_err(|e| e.to_string())?;
+
+                rb.save_backup(&OptimizationBackup {
+                    session_id: session_id.to_string(),
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    tweak_id: "disable_power_throttling".to_string(),
+                    description: "Disable Power Throttling on Foreground Tasks".to_string(),
+                    registry_snapshots: vec![snap],
+                    service_snapshots: vec![],
+                })?;
+
+                Ok(())
+            },
+            revert: |rb| {
+                for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "disable_power_throttling") {
+                    rb.rollback_backup(&b)?;
+                }
+                Ok(())
+            },
+        },
+        Tweak {
+            id: "disable_maintenance_wakeups",
+            name: "Disable Random Idle Automatic Maintenance",
+            description: "Stops Windows Maintenance tasks from abruptly spinning up background CPU and disk scans during brief idle periods.",
+            category: TweakCategory::Performance,
+            risk_level: RiskLevel::Safe,
+            is_applicable: |_| true,
+            check_status: || {
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                if let Ok(key) = hklm.open_subkey_with_flags("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Maintenance", KEY_READ) {
+                    if let Ok(val) = key.get_value::<u32, _>("MaintenanceDisabled") {
+                        return val == 1;
+                    }
+                }
+                false
+            },
+            apply: |rb, session_id| {
+                let subkey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Maintenance";
+                let snap = RollbackManager::snapshot_registry_value("HKLM", subkey, "MaintenanceDisabled");
+
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                let (key, _) = hklm.create_subkey(subkey).map_err(|e| e.to_string())?;
+                key.set_value("MaintenanceDisabled", &1u32).map_err(|e| e.to_string())?;
+
+                rb.save_backup(&OptimizationBackup {
+                    session_id: session_id.to_string(),
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    tweak_id: "disable_maintenance_wakeups".to_string(),
+                    description: "Disable Random Idle Automatic Maintenance".to_string(),
+                    registry_snapshots: vec![snap],
+                    service_snapshots: vec![],
+                })?;
+
+                Ok(())
+            },
+            revert: |rb| {
+                for b in rb.list_backups().into_iter().filter(|b| b.tweak_id == "disable_maintenance_wakeups") {
                     rb.rollback_backup(&b)?;
                 }
                 Ok(())

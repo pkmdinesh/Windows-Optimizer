@@ -1,6 +1,6 @@
 use crate::engine::OptimizationOrchestrator;
 use crate::hardware::models::*;
-use crate::modules::{DebloatManager, StartupManager};
+use crate::modules::{CleanerManager, DebloatManager, StartupManager};
 use colored::*;
 use std::io::{self, Write};
 
@@ -9,7 +9,7 @@ pub struct CliInterface;
 impl CliInterface {
     pub fn print_banner(profile: &HardwareProfile) {
         println!("{}", "================================================================================".cyan());
-        println!("{}", "            UNIVERSAL HARDWARE-AWARE WINDOWS OS OPTIMIZER v0.1.0                ".bold().cyan());
+        println!("{}", "            UNIVERSAL HARDWARE-AWARE WINDOWS OS OPTIMIZER v0.2.0                ".bold().cyan());
         println!("{}", "================================================================================".cyan());
         println!(
             "  OS:       {} (Build {}) [{}]",
@@ -72,8 +72,8 @@ impl CliInterface {
     }
 
     pub fn list_tweaks(orchestrator: &OptimizationOrchestrator) {
-        println!("\n{:<30} {:<22} {:<10} {:<10}", "TWEAK NAME", "CATEGORY", "STATUS", "RISK");
-        println!("{}", "-".repeat(78));
+        println!("\n{:<32} {:<22} {:<10} {:<10}", "TWEAK NAME", "CATEGORY", "STATUS", "RISK");
+        println!("{}", "-".repeat(80));
 
         for info in orchestrator.get_tweak_infos() {
             let status_str = if !info.is_applicable {
@@ -85,8 +85,8 @@ impl CliInterface {
             };
 
             println!(
-                "{:<30} {:<22} {:<10} {:<10}",
-                if info.name.len() > 28 { &info.name[..28] } else { &info.name },
+                "{:<32} {:<22} {:<10} {:<10}",
+                if info.name.len() > 30 { &info.name[..30] } else { &info.name },
                 info.category,
                 status_str,
                 info.risk_level
@@ -100,12 +100,14 @@ impl CliInterface {
             println!("{}", "Available Actions:".bold());
             println!("  1. Apply All Safe Hardware-Aware Defaults (One-Click)");
             println!("  2. View All Tweaks & Current System Status");
-            println!("  3. Scan & Purge Installed UWP Bloatware");
-            println!("  4. Inspect Registered Startup Programs");
-            println!("  5. Rollback All Optimizations (Undo to Previous State)");
-            println!("  6. Launch Modern Web Dashboard (Local Fluent GUI)");
+            println!("  3. Deep Clean Temp & Junk Files (%TEMP%, Prefetch, Caches)");
+            println!("  4. Quick Flush RAM Working Sets & DNS Resolver Cache");
+            println!("  5. Scan & Purge Installed UWP Bloatware");
+            println!("  6. Inspect Registered Startup Programs");
+            println!("  7. Rollback All Optimizations (Undo to Previous State)");
+            println!("  8. Launch Modern Web GUI App (Dedicated Window)");
             println!("  0. Exit");
-            print!("\nSelect an option [0-6]: ");
+            print!("\nSelect an option [0-8]: ");
             let _ = io::stdout().flush();
 
             let mut input = String::new();
@@ -121,6 +123,29 @@ impl CliInterface {
                     Self::list_tweaks(orchestrator);
                 }
                 "3" => {
+                    println!("\n{}", "==> Scanning junk files...".cyan());
+                    let junk = CleanerManager::scan_junk();
+                    let total_bytes: u64 = junk.iter().map(|j| j.size_bytes).sum();
+                    let total_files: usize = junk.iter().map(|j| j.file_count).sum();
+                    println!("    Detected {:.2} MB across {} files cleanable.", total_bytes as f64 / (1024.0 * 1024.0), total_files);
+
+                    print!("Proceed to purge all temporary & junk files? (y/N): ");
+                    let _ = io::stdout().flush();
+                    let mut confirm = String::new();
+                    let _ = io::stdin().read_line(&mut confirm);
+                    if confirm.trim().eq_ignore_ascii_case("y") {
+                        let res = CleanerManager::clean_all_junk();
+                        println!("{}", format!("    [✓] Cleaned {:.2} MB across {} files!", res.total_freed_bytes as f64 / (1024.0 * 1024.0), res.files_deleted).green());
+                    }
+                    println!();
+                }
+                "4" => {
+                    println!("\n{}", "==> Flushing DNS resolver and trimming RAM working sets...".cyan());
+                    let res = CleanerManager::boost_memory_and_network();
+                    println!("{}", format!("    [✓] {}", res.message).green());
+                    println!();
+                }
+                "5" => {
                     println!("\n{}", "==> Scanning for pre-installed bloatware packages...".cyan());
                     let bloat = DebloatManager::scan_installed_bloatware();
                     let installed: Vec<_> = bloat.iter().filter(|b| b.is_installed).collect();
@@ -146,7 +171,7 @@ impl CliInterface {
                     }
                     println!();
                 }
-                "4" => {
+                "6" => {
                     println!("\n{}", "==> Inspecting Registered Startup Items in Windows Registry...".cyan());
                     let items = StartupManager::get_registered_startup_programs();
                     if items.is_empty() {
@@ -158,7 +183,7 @@ impl CliInterface {
                     }
                     println!();
                 }
-                "5" => {
+                "7" => {
                     println!("\n{}", "==> Rolling back previous modifications...".yellow());
                     match orchestrator.rollback_all() {
                         Ok(count) => println!("{}", format!("    [✓] Reverted {} previous backups successfully.", count).green()),
@@ -166,16 +191,15 @@ impl CliInterface {
                     }
                     println!();
                 }
-                "6" => {
-                    println!("\n{}", "==> Starting local embedded web GUI on http://127.0.0.1:8765 ...".green());
-                    let _ = std::process::Command::new("cmd").args(["/c", "start", "http://127.0.0.1:8765"]).spawn();
-                    crate::ui::web::start_web_server(orchestrator.profile.clone());
+                "8" => {
+                    println!("\n{}", "==> Launching dedicated desktop GUI window...".green());
+                    crate::ui::web::launch_gui_window(orchestrator.profile.clone());
                 }
                 "0" | "q" | "exit" => {
-                    println!("Exiting WinOpt. Stay optimized!");
+                    println!("Exiting WinOpt. Stay fast and optimized!");
                     break;
                 }
-                _ => println!("{}", "Invalid option. Please choose a number between 0 and 6.\n".red()),
+                _ => println!("{}", "Invalid option. Please choose a number between 0 and 8.\n".red()),
             }
         }
     }
