@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod engine;
 mod hardware;
 mod modules;
@@ -12,17 +14,15 @@ use ui::{launch_gui_window, CliInterface};
 
 #[cfg(windows)]
 extern "system" {
-    fn GetConsoleWindow() -> isize;
-    fn ShowWindow(hWnd: isize, nCmdShow: i32) -> i32;
+    fn AttachConsole(dwProcessId: u32) -> i32;
 }
 
-fn hide_console_window() {
+const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF;
+
+fn attach_parent_console() {
     #[cfg(windows)]
     unsafe {
-        let hwnd = GetConsoleWindow();
-        if hwnd != 0 {
-            ShowWindow(hwnd, 0); // 0 = SW_HIDE
-        }
+        let _ = AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }
 
@@ -77,13 +77,15 @@ fn main() {
         || args.boost
         || args.cli;
 
-    // Default behavior on double-click or no flags: Launch GUI app window
+    // Default behavior: Pure GUI window with NO console window
     if !has_cli_flag || args.gui {
-        hide_console_window();
         let profile = HardwareProfiler::collect_profile();
         launch_gui_window(profile);
         return;
     }
+
+    // Attach to existing console if user explicitly ran from command prompt / PowerShell
+    attach_parent_console();
 
     println!("Detecting system hardware configuration...");
     let profile = HardwareProfiler::collect_profile();
