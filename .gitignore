@@ -1,5 +1,7 @@
 /target
 /backups
-/dist
-*.exe
 *.pdb
+
+# Allow pre-compiled release binary in dist
+!/dist/
+!/dist/*
